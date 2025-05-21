@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TylerAI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0d2615;
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      width: 360px;
+      height: 640px;
+      overflow: hidden;
+    }
+
+    h3 {
+      font-size: 16px;
+      margin: 12px 20px 8px;
+    }
+
+    .avatar-container {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin: 10px auto;
+    }
+
+    .avatar-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      box-shadow: 0 0 20px 5px white;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .avatar-glow.recording {
+      animation: pulse 1.5s infinite;
+      box-shadow: 0 0 25px 10px limegreen;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 10px 5px limegreen; }
+      50% { box-shadow: 0 0 25px 10px limegreen; }
+      100% { box-shadow: 0 0 10px 5px limegreen; }
+    }
+
+    .avatar-image {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      cursor: pointer;
+      z-index: 1;
+      position: relative;
+    }
+
+    #status-box {
+      background-color: black;
+      color: white;
+      padding: 6px 10px;
+      margin: 12px auto 6px;
+      width: 320px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-radius: 4px;
+    }
+
+    #chat-box {
+      background-color: white;
+      color: black;
+      margin: 10px auto;
+      padding: 10px;
+      width: 320px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+      border-radius: 4px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h3>Hey! I'm Tyler AI, Your Personal Email Assistant</h3>
+
+  <div class="avatar-container">
+    <div class="avatar-glow" id="avatar-glow"></div>
+    <img src="../images/Tyler_Bosmeny.png" alt="Tyler Avatar" class="avatar-image" id="tyler-avatar" />
+  </div>
+
+  <div id="status-box">Tyler is ready! Click on his avatar to start recording your command</div>
+
+  <div id="chat-box"></div>
+
+  <script src="../private.js"></script>
+  <script src="../popup/popup.js"></script>
+</body>
+</html>
