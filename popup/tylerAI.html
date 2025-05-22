@@ -3,7 +3,7 @@
 <head>
   <title>TylerAI</title>
   <style>
-    body {
+    html, body {
       font-family: Arial, sans-serif;
       background-color: #0d2615;
       color: white;
@@ -11,7 +11,7 @@
       margin: 0;
       padding: 0;
       width: 360px;
-      height: 640px;
+      height: 600px;
       overflow: hidden;
     }
 
@@ -59,36 +59,42 @@
     }
 
     #status-box {
-      background-color: black;
-      color: white;
-      padding: 6px 10px;
-      margin: 12px auto 6px;
-      width: 320px;
-      font-family: monospace;
-      font-size: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      border-radius: 4px;
-    }
+  background-color: black;
+  color: white;
+  padding: 12px 10px; /* Match horizontal padding to chat box */
+  margin: 12px auto 6px;
+  width: 320px; /* Matches chat box width */
+  height: auto; /* Let height expand with content */
+  font-family: monospace;
+  font-size: 12px;
+  white-space: normal; /* Allow wrapping */
+  overflow-wrap: break-word; /* Break long words if needed */
+  border-radius: 4px;
+}
 
-    #chat-box {
-      background-color: white;
-      color: black;
-      margin: 10px auto;
-      padding: 10px;
-      width: 320px;
-      height: 300px;
-      overflow-y: auto;
-      font-family: monospace;
-      font-size: 13px;
-      border-radius: 4px;
-      text-align: left;
-    }
-  </style>
+
+#chat-box {
+  background-color: white;
+  color: black;
+  margin: 10px auto;
+  padding: 10px;
+  width: 320px;
+  height: 280px; /* Already sets scrollable space */
+  max-height: 280px; /* Ensures no overflow beyond container */
+  overflow-y: auto; /* Enables scroll when needed */
+  font-family: monospace;
+  font-size: 13px;
+  border-radius: 4px;
+  text-align: left;
+}
+.message {
+  margin-bottom: 8px;
+  word-wrap: break-word;
+}
+</style>
 </head>
 <body>
-  <h3>Hey! I'm Tyler AI, Your Personal Email Assistant</h3>
+  <h3>Hey! I'm TylerAI, Your Personal Email Assistant!</h3>
 
   <div class="avatar-container">
     <div class="avatar-glow" id="avatar-glow"></div>

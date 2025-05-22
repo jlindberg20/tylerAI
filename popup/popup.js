@@ -53,9 +53,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   chrome.runtime.onMessage.addListener((message) => {
     console.log("📬 Message received in popup:", JSON.stringify(message, null, 2));
-
+    // DEBUGGING STATEMENTS //
+    console.log("🔍 Action:", message.action);
+    console.log("🔍 Has transcription:", !!message.transcription);
+    console.log("🔍 Has gptResponse:", !!message.gptResponse);
     if (message.action === "transcriptionReady" && message.transcription) {
       appendMessage("You", message.transcription);
+      console.log("I am inside the transcription section. thinking");
       setStatus("Got it! Tyler is thinking...");
       isRecording = false;
       glow.classList.remove("recording");
@@ -63,10 +67,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (message.action === "gptResponseReady" && message.gptResponse) {
       appendMessage("Tyler", message.gptResponse);
+      console.log("I am inside the response section");
       if (chatResponseEl) {
         chatResponseEl.textContent = message.gptResponse;
       }
+      console.log("I am outside the response section. thinking");
       setStatus("Tyler responded! Click avatar to ask something else.");
     }
   });
 });
+

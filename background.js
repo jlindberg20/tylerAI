@@ -21,6 +21,27 @@ async function getAuthToken(interactive = true) {
 
 // Unified message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "transcriptionReady") {
+    // Store in memory or just relay
+    console.log("📨 Background received transcription:", message.transcription);
+  
+    // Relay to popup if open
+    chrome.runtime.sendMessage({
+      action: "transcriptionReady",
+      transcription: message.transcription
+    });
+  }
+  
+  if (message.action === "gptResponseReady") {
+    console.log("📨 Background received GPT response:", message.gptResponse);
+  
+    // Relay to popup if open
+    chrome.runtime.sendMessage({
+      action: "gptResponseReady",
+      gptResponse: message.gptResponse
+    });
+  }
+  
     if (message.action === "requestMicPermissionWithReturn") {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           const activeTabId = tabs[0].id;
@@ -77,3 +98,4 @@ async function fetchRecentEmails() {
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: chrome.runtime.getURL("popup/tylerAI.html") });
 });
+
