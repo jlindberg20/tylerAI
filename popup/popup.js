@@ -1,10 +1,11 @@
-// popup.js
+console.log("Entered: ./popup.js");
 
 document.addEventListener("DOMContentLoaded", function () {
   const avatar = document.getElementById("tyler-avatar");
   const glow = document.getElementById("avatar-glow");
   const statusBox = document.getElementById("status-box");
   const chatBox = document.getElementById("chat-box");
+  const chatResponseEl = document.getElementById("chat-response");
 
   let isRecording = false;
 
@@ -14,33 +15,58 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function appendMessage(sender, text) {
     const message = document.createElement("div");
-    message.textContent = `${sender}: ${text}`;
+    message.className = "message";
+    message.innerHTML = `<strong>${sender}:</strong> ${text}`;
     chatBox.appendChild(message);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
 
-  function toggleRecording() {
+  async function toggleRecording() {
     isRecording = !isRecording;
 
     if (isRecording) {
       glow.classList.add("recording");
-      setStatus("Recording in progress. Click avatar when you are finished");
-      // In real logic, start microphone here
+      setStatus("Requesting mic access from Gmail tab...");
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "startMicRecording" }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn("❌ Could not message Gmail tab:", chrome.runtime.lastError.message);
+            setStatus("Mic access blocked. Please enable in Chrome settings.");
+            isRecording = false;
+            glow.classList.remove("recording");
+          } else {
+            console.log("✅ Mic recording triggered in Gmail tab");
+            setStatus("Recording... Tyler is listening.");
+          }
+        });
+      });
     } else {
       glow.classList.remove("recording");
-      setStatus("Recording being processed. Tyler is thinking");
-
-      // In real logic, stop microphone + transcribe + fetch AI response
-      setTimeout(() => {
-        appendMessage("You", "What’s the latest with my inbox?");
-        appendMessage("Tyler", "You have 3 urgent emails and 12 unread ones.");
-        setStatus("Message from Tyler! Click on avatar to speak to Tyler");
-      }, 1500);
+      setStatus("Waiting for transcription...");
     }
   }
 
-  // Initial status
-  setStatus("Tyler is ready! Click on his avatar to start recording your command");
-
   avatar.addEventListener("click", toggleRecording);
+
+  setStatus("Tyler is ready! Click on his avatar to start speaking.");
+
+  chrome.runtime.onMessage.addListener((message) => {
+    console.log("📬 Message received in popup:", JSON.stringify(message, null, 2));
+
+    if (message.action === "transcriptionReady" && message.transcription) {
+      appendMessage("You", message.transcription);
+      setStatus("Got it! Tyler is thinking...");
+      isRecording = false;
+      glow.classList.remove("recording");
+    }
+
+    if (message.action === "gptResponseReady" && message.gptResponse) {
+      appendMessage("Tyler", message.gptResponse);
+      if (chatResponseEl) {
+        chatResponseEl.textContent = message.gptResponse;
+      }
+      setStatus("Tyler responded! Click avatar to ask something else.");
+    }
+  });
 });

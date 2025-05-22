@@ -30,5 +30,12 @@
         "js": ["content/gmailContent.js"],
         "all_frames": true
       }
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["permission/mic.html"],
+        "matches": ["<all_urls>"]
+      }
     ]
   }
+  

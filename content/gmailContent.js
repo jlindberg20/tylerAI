@@ -1,43 +1,35 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "startMicRecording") {
-      console.log("📥 Gmail content script: starting mic recording");
+      console.log("🎙️ Received mic start request in Gmail tab");
+      
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => {
+          const mediaRecorder = new MediaRecorder(stream);
+          const chunks = [];
   
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        const recorder = new MediaRecorder(stream);
-        const chunks = [];
-  
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-  
-        recorder.onstop = () => {
-          const blob = new Blob(chunks, { type: "audio/webm" });
-          const reader = new FileReader();
-  
-          reader.onloadend = () => {
-            chrome.runtime.sendMessage({
-              action: "micAudioBlob",
-              audioBase64: reader.result
-            });
+          mediaRecorder.ondataavailable = e => chunks.push(e.data);
+          mediaRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64Audio = reader.result;
+              chrome.runtime.sendMessage({
+                action: "micAudioBlob",
+                audioBase64: base64Audio
+              });
+            };
+            reader.readAsDataURL(blob);
           };
   
-          reader.readAsDataURL(blob);
-          stream.getTracks().forEach(track => track.stop());
-        };
+          mediaRecorder.start();
+          setTimeout(() => mediaRecorder.stop(), 5000); // 5s recording
+        })
+        .catch((err) => {
+          console.error("❌ Mic access error:", err);
+        });
   
-        recorder.start();
-        console.log("🎙️ Recording started");
-  
-        setTimeout(() => {
-          recorder.stop();
-          console.log("🛑 Recording stopped");
-        }, 4000);
-  
-        sendResponse({ status: "started" }); // ✅ respond to the popup
-      }).catch(err => {
-        console.error("❌ Mic access failed:", err);
-        sendResponse({ status: "error", error: err.message });
-      });
-  
-      return true; // ✅ keep message channel open for sendResponse
+      sendResponse({ status: "started" });
+      return true;
     }
   });
   
