@@ -19,7 +19,8 @@
     "permissions": [
       "tabs",
       "identity",
-      "storage"
+      "storage",
+      "scripting"
     ],
     "host_permissions": [
       "https://mail.google.com/*"

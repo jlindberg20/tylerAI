@@ -66,7 +66,7 @@ async function fetchRecentEmails() {
   try {
     const token = await getAuthToken();
     const response = await fetch(
-      'https://www.googleapis.com/gmail/v1/users/me/messages?q=newer_than:2d&maxResults=10',
+      'https://www.googleapis.com/gmail/v1/users/me/messages?q=in:inbox+category:primary&maxResults=20',
       {
         method: 'GET',
         headers: {
@@ -79,7 +79,7 @@ async function fetchRecentEmails() {
     const emails = await Promise.all(
       (data.messages || []).map(async (msg) => {
         const res = await fetch(
-          `https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
+          `https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`,
           {
             headers: { Authorization: `Bearer ${token}` }
           }
