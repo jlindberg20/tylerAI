@@ -1,42 +1,53 @@
 {
-    "name": "TylerAI",
-    "description": "AI Email Assistant",
-    "version": "1.0",
-    "manifest_version": 3,
-    "oauth2": {
-      "client_id": "328229431220-lftkj1sdhu3disrtqvujpf7ecomihsc9.apps.googleusercontent.com",
-      "scopes": [
-        "https://www.googleapis.com/auth/gmail.readonly"
-      ]
-    },
-    "action": {
-      "default_popup": "popup/tylerAI.html",
-      "default_icon": "images/Tyler_Bosmeny.png"
-    },
-    "background": {
-      "service_worker": "background.js"
-    },
-    "permissions": [
-      "tabs",
-      "identity",
-      "storage",
-      "scripting"
-    ],
-    "host_permissions": [
-      "https://mail.google.com/*"
-    ],
-    "content_scripts": [
-      {
-        "matches": ["https://mail.google.com/*"],
-        "js": ["content/gmailContent.js"],
-        "all_frames": true
-      }
-    ],
-    "web_accessible_resources": [
-      {
-        "resources": ["permission/mic.html"],
-        "matches": ["<all_urls>"]
-      }
+  "name": "TylerAI",
+  "description": "AI Email Assistant",
+  "version": "1.0",
+  "manifest_version": 3,
+
+  "oauth2": {
+    "client_id": "328229431220-lftkj1sdhu3disrtqvujpf7ecomihsc9.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/contacts.other.readonly",
+      "https://www.googleapis.com/auth/contacts.readonly"
+
     ]
-  }
-  
+  },
+
+  "action": {
+    "default_popup": "popup/tylerAI.html",
+    "default_icon": "images/Tyler_Bosmeny.png"
+  },
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "permissions": [
+    "tabs",
+    "identity",
+    "identity.email",
+    "storage",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://people.googleapis.com/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content/gmailContent.js"],
+      "all_frames": true
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["permission/mic.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

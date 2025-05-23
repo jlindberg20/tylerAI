@@ -1,6 +1,11 @@
 let transcriptEl;
 let chatResponseEl;
 let askOpenAIInProgress = false;
+let lastDraftState = {
+  recipient: '',
+  body: '',
+  timestamp: 0
+};
 
 window.addEventListener("DOMContentLoaded", () => {
   console.log("✅ voice.js loaded");
@@ -347,7 +352,30 @@ function executeAction(action) {
     console.log("⚠️ No action to execute.");
     return;
   }
+
   console.log("🚀 executeAction() called with:", action);
+
+  const { type, parameters } = action;
+  const emailToUse = parameters.recipient || "";
+  const body = parameters.body || "";
+
+  if (
+    type === "draft_reply" &&
+    emailToUse === lastDraftState.recipient &&
+    body === lastDraftState.body &&
+    Date.now() - lastDraftState.timestamp < 10000
+  ) {
+    console.log("⛔ Duplicate draft detected — skipping");
+    return;
+  }
+
+  if (type === "draft_reply") {
+    lastDraftState = {
+      recipient: emailToUse,
+      body,
+      timestamp: Date.now()
+    };
+  }
 
   chrome.tabs.query({ url: "*://mail.google.com/*" }, (tabs) => {
     console.log("🔍 Gmail tabs found:", tabs);
@@ -361,7 +389,8 @@ function executeAction(action) {
 
     chrome.scripting.executeScript({
       target: { tabId },
-      func: ({ type, parameters }) => {
+      func: (action) => {
+        const { type, parameters } = action;
         console.log("🧠 Executing action inside Gmail:", type, parameters);
 
         function waitForElement(selector, timeout = 5000) {
@@ -379,7 +408,7 @@ function executeAction(action) {
           });
         }
 
-        const { recipient, body, threadId, recipientEmail } = parameters;
+        const { recipient, body, threadId } = parameters;
         const emailToUse = recipient || "";
 
         if (type === "draft_reply") {
@@ -430,17 +459,21 @@ function executeAction(action) {
               }
             }
 
-            setTimeout(() => {
-              const toField = document.querySelector("textarea[name='to']");
-              const bodyField = document.querySelector("div[aria-label='Message Body']");
+            Promise.all([
+              waitForElement("input[aria-label='To recipients']"),
+              waitForElement("div[aria-label='Message Body']")
+            ]).then(([toField, bodyField]) => {
+              console.log("✅ Got TO candidate:", toField);
 
               if (toField && emailToUse) {
                 console.log("✅ Found TO field, inserting recipient:", emailToUse);
                 toField.focus();
-                toField.click();
-                toField.setRangeText(emailToUse);
-                toField.dispatchEvent(new Event('input', { bubbles: true }));
-                toField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                toField.value = emailToUse;
+                toField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+                toField.blur();
+                setTimeout(() => {
+                  toField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                }, 100);
               } else {
                 console.warn("⚠️ TO field not found or no email");
               }
@@ -452,7 +485,9 @@ function executeAction(action) {
               } else {
                 console.warn("⚠️ Body field not found");
               }
-            }, 1500);
+            }).catch((err) => {
+              console.error("❌ Error waiting for compose elements:", err);
+            });
           }
         }
 
@@ -466,10 +501,7 @@ function executeAction(action) {
           }
         }
       },
-      args: [{ type: action.type, parameters: action.parameters }]
+      args: [action]
     });
   });
 }
-
-
-
