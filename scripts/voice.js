@@ -122,79 +122,7 @@ async function askOpenAI(transcription, emails) {
       console.error("Chat API error:", err);
       speakText("Something went wrong when contacting the AI.");
     }
-  }
-
-  // SERVER TEST IMPLEMENTATION - LOCAL HOST //
-  /*chrome.runtime.onMessage.addListener((message) => {
-    if (message.action === "micAudioBlob" && message.audioBase64) {
-      console.log("🎧 Received mic audio blob from Gmail tab");
-  
-      try {
-        const blob = base64ToBlob(message.audioBase64);
-        console.log("✅ Converted base64 to Blob:", blob);
-  
-        if (askOpenAIInProgress) {
-          console.warn("⚠️ GPT request already in progress. Skipping duplicate.");
-          return;
-        }
-        askOpenAIInProgress = true;
-  
-        // ✅ Package audio + mock email data and send to backend
-        const formData = new FormData();
-        formData.append("audio", blob, "voice.webm");
-  
-        const mockEmailData = {
-          emails: [
-            {
-              sender: "Google Workspace Admins",
-              subject: "Verify your login",
-              snippet: "A new sign-in was detected on your account.",
-              timestamp: "2025-05-21T15:30:00Z"
-            },
-            {
-              sender: "United",
-              subject: "Last chance travel deals",
-              snippet: "Book before midnight for exclusive discounts.",
-              timestamp: "2025-05-21T14:10:00Z"
-            }
-          ]
-        };
-  
-        formData.append("meta", JSON.stringify(mockEmailData));
-  
-        fetch("http://localhost:3001/api/transcribe-and-respond", {
-          method: "POST",
-          body: formData
-        })
-          .then(res => res.json())
-          .then(data => {
-            console.log("🧠 Backend returned:", data);
-  
-            chrome.runtime.sendMessage({
-              action: "transcriptionReady",
-              transcription: data.transcription
-            });
-  
-            chrome.runtime.sendMessage({
-              action: "gptResponseReady",
-              gptResponse: data.response
-            });
-  
-            speakText(data.response);
-            askOpenAIInProgress = false;
-          })
-          .catch(err => {
-            console.error("❌ Backend fetch error:", err);
-            askOpenAIInProgress = false;
-          });
-  
-      } catch (e) {
-        console.error("❌ Error converting blob or sending to backend:", e);
-        askOpenAIInProgress = false;
-      }
-    }
-  });*/
-  
+  } 
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "micAudioBlob" && message.audioBase64) {
@@ -356,12 +284,19 @@ function executeAction(action) {
   console.log("🚀 executeAction() called with:", action);
 
   const { type, parameters } = action;
-  const emailToUse = parameters.recipient || "";
-  const body = parameters.body || "";
+  const {
+    recipient = "",
+    body = "",
+    to = [],
+    cc = [],
+    bcc = [],
+    subject = "",
+    threadId = null
+  } = parameters;
 
   if (
     type === "draft_reply" &&
-    emailToUse === lastDraftState.recipient &&
+    recipient === lastDraftState.recipient &&
     body === lastDraftState.body &&
     Date.now() - lastDraftState.timestamp < 10000
   ) {
@@ -371,7 +306,7 @@ function executeAction(action) {
 
   if (type === "draft_reply") {
     lastDraftState = {
-      recipient: emailToUse,
+      recipient,
       body,
       timestamp: Date.now()
     };
@@ -408,8 +343,15 @@ function executeAction(action) {
           });
         }
 
-        const { recipient, body, threadId } = parameters;
-        const emailToUse = recipient || "";
+        const {
+          recipient = "",
+          body = "",
+          to = [],
+          cc = [],
+          bcc = [],
+          subject = "",
+          threadId = null
+        } = parameters;
 
         if (type === "draft_reply") {
           console.log("📥 Draft reply requested");
@@ -444,49 +386,96 @@ function executeAction(action) {
               }, 1000);
             }).catch(err => console.error("❌ Error finding thread:", err));
           } else {
-            console.log("📝 No threadId, composing new email");
+            const composeDialogs = document.querySelectorAll("div[role='dialog'][aria-label*='New Message'], div[role='dialog'][aria-label*='Compose']");
+            const hasActiveDraft = Array.from(composeDialogs).some(dialog => {
+              const toField = dialog.querySelector("input[aria-label='To recipients']");
+              return toField && toField.value.trim().length > 0;
+            });
 
-            const existingCompose = document.querySelector("div[role='dialog'][aria-label*='New Message'], div[role='dialog'][aria-label*='Compose']");
-            if (existingCompose) {
-              console.log("✉️ Found existing compose box — injecting into it");
-            } else {
+            if (!hasActiveDraft) {
               const composeBtn = document.querySelector(".T-I.T-I-KE.L3");
               if (composeBtn) {
-                console.log("✅ No compose open — clicking compose");
+                console.log("✅ No active draft — clicking compose");
                 composeBtn.click();
               } else {
                 console.warn("⚠️ Compose button not found");
               }
+            } else {
+              console.log("✉️ Active draft already open — skipping compose");
             }
 
             Promise.all([
               waitForElement("input[aria-label='To recipients']"),
               waitForElement("div[aria-label='Message Body']")
             ]).then(([toField, bodyField]) => {
-              console.log("✅ Got TO candidate:", toField);
+              if (toField && to.length) {
+              console.log("✅ Inserting TO:", to.join(", "));
+              toField.focus();
+              toField.value = to.join(", ");
+              toField.dispatchEvent(new InputEvent("input", { bubbles: true }));
 
-              if (toField && emailToUse) {
-                console.log("✅ Found TO field, inserting recipient:", emailToUse);
-                toField.focus();
-                toField.value = emailToUse;
-                toField.dispatchEvent(new InputEvent("input", { bubbles: true }));
-                toField.blur();
-                setTimeout(() => {
-                  toField.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-                }, 100);
-              } else {
-                console.warn("⚠️ TO field not found or no email");
+              setTimeout(() => {
+                // Try to click Gmail's recipient suggestion bubble
+                const suggestion = document.querySelector("div[role='listbox'] div[role='option']");
+                if (suggestion) {
+                  console.log("🖱️ Clicking Gmail recipient suggestion");
+                  suggestion.click();
+                } else {
+                  console.warn("⚠️ No recipient suggestion found to click");
+                }
+              }, 300);
+            }
+              // ✅ Reveal CC if necessary
+              if (cc.length > 0) {
+                const showCc = document.querySelector("span[aria-label='Add Cc recipients']");
+                if (showCc) {
+                  console.log("➕ Clicking 'Add Cc' to reveal CC field");
+                  showCc.click();
+                }
+              }
+
+              const ccField = document.querySelector("input[aria-label='Cc recipients']");
+              if (ccField && cc.length) {
+                console.log("✅ Inserting CC:", cc.join(", "));
+                ccField.focus();
+                ccField.value = cc.join(", ");
+                ccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+              }
+
+              // ✅ Reveal BCC if necessary
+              if (bcc.length > 0) {
+                const showBcc = document.querySelector("span[aria-label='Add Bcc recipients']");
+                if (showBcc) {
+                  console.log("➕ Clicking 'Add Bcc' to reveal BCC field");
+                  showBcc.click();
+                }
+              }
+
+              const bccField = document.querySelector("input[aria-label='Bcc recipients']");
+              if (bccField && bcc.length) {
+                console.log("✅ Inserting BCC:", bcc.join(", "));
+                bccField.focus();
+                bccField.value = bcc.join(", ");
+                bccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+              }
+
+              const subjectField = document.querySelector("input[name='subjectbox']");
+              if (subjectField && subject) {
+                console.log("✅ Inserting subject:", subject);
+                subjectField.focus();
+                subjectField.value = subject;
+                subjectField.dispatchEvent(new InputEvent("input", { bubbles: true }));
               }
 
               if (bodyField && body) {
-                console.log("✅ Found body field, inserting text");
+                console.log("✅ Inserting body");
                 bodyField.focus();
                 document.execCommand("insertText", false, body);
               } else {
                 console.warn("⚠️ Body field not found");
               }
-            }).catch((err) => {
-              console.error("❌ Error waiting for compose elements:", err);
+            }).catch(err => {
+              console.error("❌ Error preparing compose fields:", err);
             });
           }
         }
