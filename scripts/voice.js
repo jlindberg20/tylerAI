@@ -43,7 +43,6 @@ export async function transcribeWithWhisper(audioBlob) {
       return "";
     }
   }
-  
 
 function speakText(text) {
   const utterance = new SpeechSynthesisUtterance(text);

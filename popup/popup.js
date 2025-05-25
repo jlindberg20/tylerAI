@@ -5,7 +5,6 @@ import { fetchContacts } from "../getGoogleContacts.js";
 window.addEventListener("DOMContentLoaded", () => {
   console.log("⚡ Tyler popup loaded");
 
-  // Always try to get a fresh token, even if no cached one exists
   chrome.identity.getAuthToken({ interactive: false }, (token) => {
     const handleNewToken = async (newToken) => {
       console.log("🔑 Fresh token:", newToken);
@@ -36,26 +35,15 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-
 document.addEventListener("DOMContentLoaded", function () {
   const avatar = document.getElementById("tyler-avatar");
   const glow = document.getElementById("avatar-glow");
   const statusBox = document.getElementById("status-box");
-  const chatBox = document.getElementById("chat-box");
-  const chatResponseEl = document.getElementById("chat-response");
 
   let isRecording = false;
 
   function setStatus(message) {
-    statusBox.textContent = message;
-  }
-
-  function appendMessage(sender, text) {
-    const message = document.createElement("div");
-    message.className = "message";
-    message.innerHTML = `<strong>${sender}:</strong> ${text}`;
-    chatBox.appendChild(message);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (statusBox) statusBox.textContent = message;
   }
 
   async function toggleRecording() {
@@ -63,6 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (isRecording) {
       glow.classList.add("recording");
+      avatar.classList.add("spin");
       setStatus("Requesting mic access from Gmail tab...");
 
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -72,6 +61,7 @@ document.addEventListener("DOMContentLoaded", function () {
             setStatus("Mic access blocked. Please enable in Chrome settings.");
             isRecording = false;
             glow.classList.remove("recording");
+            avatar.classList.remove("spin");
           } else {
             console.log("Mic recording triggered in Gmail tab");
             setStatus("Recording... Tyler is listening.");
@@ -80,6 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     } else {
       glow.classList.remove("recording");
+      avatar.classList.remove("spin");
       setStatus("Waiting for transcription...");
     }
   }
@@ -89,46 +80,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
   chrome.runtime.onMessage.addListener((message) => {
     console.log("Message received in popup:", JSON.stringify(message, null, 2));
-    console.log("Action:", message.action);
-    console.log("Has transcription:", !!message.transcription);
-    console.log("Has gptResponse:", !!message.gptResponse);
 
     if (message.action === "transcriptionReady" && message.transcription) {
-      const normalizedTranscript = message.transcription.trim().toLowerCase();
-
-      const alreadyAppended = [...chatBox.querySelectorAll(".message")]
-        .some(m => m.textContent.trim().toLowerCase() === `you: ${normalizedTranscript}`);
-
-      if (!alreadyAppended) {
-        appendMessage("You", message.transcription);
-      } else {
-        console.log("⏭️ Skipping duplicate user message:", message.transcription);
-      }
-
       setStatus("Got it! Tyler is thinking...");
       isRecording = false;
       glow.classList.remove("recording");
+      avatar.classList.remove("spin");
     }
 
     if (message.action === "gptResponseReady" && message.gptResponse) {
-      appendMessage("Tyler", message.gptResponse);
-      console.log("📥 Tyler response received");
-      if (chatResponseEl) {
-        chatResponseEl.textContent = message.gptResponse;
-      }
-      setStatus("Tyler responded! Click avatar to ask something else.");
+      setStatus(message.gptResponse);
+      console.log("📥 Tyler response displayed");
 
       if (message.data?.action) {
         const action = message.data.action;
         if (action.type === "draft_reply") {
           setStatus(`📤 Preparing draft to ${action.parameters.recipient || "recipient"}`);
-          appendMessage("System", `Drafting a reply to ${action.parameters.recipient}`);
         } else if (action.type === "move_to_trash") {
           setStatus(`🗑️ Moving email to trash`);
-          appendMessage("System", `Moving an email to trash.`);
         } else if (action.type === "mark_as_unread") {
           setStatus(`📩 Marking email as unread`);
-          appendMessage("System", `Marking an email as unread.`);
         }
       }
     }
