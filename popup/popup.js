@@ -12,13 +12,55 @@ window.addEventListener("DOMContentLoaded", () => {
       try {
         const contacts = await fetchContacts(newToken);
         console.log("📇 Contacts fetched:", contacts);
+        const gmailProfileRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+        headers: { Authorization: `Bearer ${newToken}` }
+        });
+        const gmailProfile = await gmailProfileRes.json();
 
-        await fetch("http://localhost:5001/api/initContacts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: "user-001", contacts })
+        const labelsRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/labels", {
+          headers: { Authorization: `Bearer ${newToken}` }
+        });
+        const labels = await labelsRes.json();
+
+        const labelStats = {};
+        labels.labels.forEach(label => {
+          labelStats[label.name] = label.messagesTotal;
         });
 
+        const draftsRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts?maxResults=5", {
+          headers: { Authorization: `Bearer ${newToken}` }
+        });
+        const draftsData = await draftsRes.json();
+
+        const recentDrafts = (draftsData.drafts || []).map(d => ({
+          id: d.id,
+          threadId: d.message?.threadId,
+          snippet: d.message?.snippet
+        }));
+
+        let profileInfo = {};
+        try {
+          const peopleRes = await fetch("https://people.googleapis.com/v1/people/me?personFields=names,photos", {
+            headers: { Authorization: `Bearer ${newToken}` }
+          });
+          const peopleData = await peopleRes.json();
+          profileInfo.name = peopleData.names?.[0]?.displayName || "";
+          profileInfo.photo = peopleData.photos?.[0]?.url || "";
+        } catch (err) {
+          console.warn("👤 Google People API not available or blocked:", err);
+        }
+        await fetch("https://tylerai-backend.onrender.com/api/initContacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "user-001",
+            contacts,
+            gmailProfile,
+            labelStats,
+            recentDrafts,
+            profileInfo
+          })
+        });
         console.log("✅ Contacts sent to backend");
       } catch (err) {
         console.error("❌ Failed to fetch/send contacts:", err);

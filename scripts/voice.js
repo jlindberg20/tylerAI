@@ -1,11 +1,15 @@
 let transcriptEl;
 let chatResponseEl;
 let askOpenAIInProgress = false;
+let draftOpen = false;
 let lastDraftState = {
   recipient: '',
+  subject: '',
   body: '',
   timestamp: 0
 };
+
+window.isComposeOpen = false;
 
 window.addEventListener("DOMContentLoaded", () => {
   console.log("✅ voice.js loaded");
@@ -43,6 +47,13 @@ export async function transcribeWithWhisper(audioBlob) {
       return "";
     }
   }
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "resetDraftFlag") {
+    console.log("🔁 Resetting draftOpen to false");
+    draftOpen = false;
+  }
+});
 
 function speakText(text) {
   const utterance = new SpeechSynthesisUtterance(text);
@@ -213,7 +224,7 @@ async function askOpenAI(transcription, emails) {
               userId: "user-001"
             };
             
-            fetch("http://localhost:5001/api/query", {
+            fetch("https://tylerai-backend.onrender.com/api/query", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json"
@@ -296,6 +307,7 @@ function executeAction(action) {
   if (
     type === "draft_reply" &&
     recipient === lastDraftState.recipient &&
+    subject === lastDraftState.subject &&
     body === lastDraftState.body &&
     Date.now() - lastDraftState.timestamp < 10000
   ) {
@@ -303,13 +315,13 @@ function executeAction(action) {
     return;
   }
 
-  if (type === "draft_reply") {
-    lastDraftState = {
-      recipient,
-      body,
-      timestamp: Date.now()
-    };
-  }
+  draftOpen = true;
+  lastDraftState = {
+    recipient,
+    subject,
+    body,
+    timestamp: Date.now()
+  };
 
   chrome.tabs.query({ url: "*://mail.google.com/*" }, (tabs) => {
     console.log("🔍 Gmail tabs found:", tabs);
@@ -353,137 +365,96 @@ function executeAction(action) {
         } = parameters;
 
         if (type === "draft_reply") {
-          console.log("📥 Draft reply requested");
+        console.log("📥 Draft reply requested");
 
-          if (threadId) {
-            const threadSelector = `div[data-legacy-thread-id='${threadId}']`;
-            console.log("🔍 Looking for thread:", threadSelector);
-
-            waitForElement(threadSelector).then(thread => {
-              console.log("✅ Found thread, clicking...");
-              thread.click();
-
-              setTimeout(() => {
-                const replyBtn = document.querySelector("div[aria-label='Reply']") || document.querySelector(".ams.bkH");
-                if (replyBtn) {
-                  console.log("✅ Found reply button, clicking...");
-                  replyBtn.click();
-                } else {
-                  console.warn("⚠️ Reply button not found");
-                }
-
-                setTimeout(() => {
-                  const bodyField = document.querySelector("div[aria-label='Message Body']");
-                  if (bodyField) {
-                    console.log("✅ Found body field, inserting text");
-                    bodyField.focus();
-                    document.execCommand("insertText", false, body);
-                  } else {
-                    console.warn("⚠️ Body field not found");
-                  }
-                }, 1000);
-              }, 1000);
-            }).catch(err => console.error("❌ Error finding thread:", err));
+        if (window.isComposeOpen) {
+          console.log("✉️ Compose already open — skipping new draft.");
+        } else {
+          const composeBtn = document.querySelector(".T-I.T-I-KE.L3");
+          if (composeBtn) {
+            console.log("🆕 Clicking compose");
+            composeBtn.click();
+            window.isComposeOpen = true;
           } else {
-            const composeDialogs = document.querySelectorAll("div[role='dialog'][aria-label*='New Message'], div[role='dialog'][aria-label*='Compose']");
-            const hasActiveDraft = Array.from(composeDialogs).some(dialog => {
-              const toField = dialog.querySelector("input[aria-label='To recipients']");
-              return toField && toField.value.trim().length > 0;
-            });
+            console.warn("⚠️ Compose button not found");
+            return;
+          }
+        }
 
-            if (!hasActiveDraft) {
-              const composeBtn = document.querySelector(".T-I.T-I-KE.L3");
-              if (composeBtn) {
-                console.log("✅ No active draft — clicking compose");
-                composeBtn.click();
-              } else {
-                console.warn("⚠️ Compose button not found");
-              }
-            } else {
-              console.log("✉️ Active draft already open — skipping compose");
-            }
-
-            Promise.all([
-              waitForElement("input[aria-label='To recipients']"),
-              waitForElement("div[aria-label='Message Body']")
-            ]).then(([toField, bodyField]) => {
-              if (toField && to.length) {
+          Promise.all([
+            waitForElement("input[aria-label='To recipients']"),
+            waitForElement("div[aria-label='Message Body']")
+          ]).then(([toField, bodyField]) => {
+            if (toField && to.length) {
               console.log("✅ Inserting TO:", to.join(", "));
               toField.focus();
               toField.value = to.join(", ");
               toField.dispatchEvent(new InputEvent("input", { bubbles: true }));
 
               setTimeout(() => {
-                // Try to click Gmail's recipient suggestion bubble
                 const suggestion = document.querySelector("div[role='listbox'] div[role='option']");
                 if (suggestion) {
                   console.log("🖱️ Clicking Gmail recipient suggestion");
                   suggestion.click();
-                } else {
-                  console.warn("⚠️ No recipient suggestion found to click");
                 }
               }, 300);
             }
-              // ✅ Reveal CC if necessary
-              if (cc.length > 0) {
-                const showCc = document.querySelector("span[aria-label='Add Cc recipients']");
-                if (showCc) {
-                  console.log("➕ Clicking 'Add Cc' to reveal CC field");
-                  showCc.click();
-                }
-              }
 
-              const ccField = document.querySelector("input[aria-label='Cc recipients']");
-              if (ccField && cc.length) {
-                console.log("✅ Inserting CC:", cc.join(", "));
-                ccField.focus();
-                ccField.value = cc.join(", ");
-                ccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
-              }
+            if (cc.length > 0) {
+              const showCc = document.querySelector("span[aria-label='Add Cc recipients']");
+              if (showCc) showCc.click();
+            }
 
-              // ✅ Reveal BCC if necessary
-              if (bcc.length > 0) {
-                const showBcc = document.querySelector("span[aria-label='Add Bcc recipients']");
-                if (showBcc) {
-                  console.log("➕ Clicking 'Add Bcc' to reveal BCC field");
-                  showBcc.click();
-                }
-              }
+            const ccField = document.querySelector("input[aria-label='Cc recipients']");
+            if (ccField && cc.length) {
+              ccField.value = cc.join(", ");
+              ccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+            }
 
-              const bccField = document.querySelector("input[aria-label='Bcc recipients']");
-              if (bccField && bcc.length) {
-                console.log("✅ Inserting BCC:", bcc.join(", "));
-                bccField.focus();
-                bccField.value = bcc.join(", ");
-                bccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
-              }
+            if (bcc.length > 0) {
+              const showBcc = document.querySelector("span[aria-label='Add Bcc recipients']");
+              if (showBcc) showBcc.click();
+            }
 
-              const subjectField = document.querySelector("input[name='subjectbox']");
-              if (subjectField && subject) {
-                console.log("✅ Inserting subject:", subject);
-                subjectField.focus();
-                subjectField.value = subject;
-                subjectField.dispatchEvent(new InputEvent("input", { bubbles: true }));
-              }
+            const bccField = document.querySelector("input[aria-label='Bcc recipients']");
+            if (bccField && bcc.length) {
+              bccField.value = bcc.join(", ");
+              bccField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+            }
 
-              if (bodyField && body) {
-                console.log("✅ Inserting body");
-                bodyField.focus();
-                document.execCommand("insertText", false, body);
-              } else {
-                console.warn("⚠️ Body field not found");
-              }
-            }).catch(err => {
-              console.error("❌ Error preparing compose fields:", err);
-            });
-          }
+            const subjectField = document.querySelector("input[name='subjectbox']");
+            if (subjectField && subject) {
+              subjectField.focus();
+              subjectField.value = subject;
+              subjectField.dispatchEvent(new InputEvent("input", { bubbles: true }));
+            }
+
+            if (bodyField && body) {
+              console.log("✅ Inserting body");
+              bodyField.focus();
+              document.execCommand("insertText", false, body);
+            }
+          }).catch(err => {
+            console.error("❌ Error preparing compose fields:", err);
+          });
         }
 
         if (type === "send_email") {
           const sendBtn = document.querySelector("div[aria-label*='Send'][role='button'], .T-I.J-J5-Ji.aoO.v7.T-I-atl.L3");
           if (sendBtn) {
             console.log("✅ Found send button, clicking...");
+            const observer = new MutationObserver(() => {
+              const draftDialog = document.querySelector("div[role='dialog'][aria-label*='New Message'], div[role='dialog'][aria-label*='Compose']");
+              if (!draftDialog) {
+                console.log("📪 Draft dialog closed — resetting draftOpen");
+                chrome.runtime.sendMessage({ action: "resetDraftFlag" });
+                observer.disconnect();
+              }
+            });
+
+            observer.observe(document.body, { childList: true, subtree: true });
             sendBtn.click();
+            window.isComposeOpen = false;
           } else {
             console.warn("⚠️ Send button not found");
           }
