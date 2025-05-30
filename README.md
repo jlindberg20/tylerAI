@@ -4,6 +4,9 @@ ReadME Content
 
 TylerAI is a Chrome extension that lets you manage your Gmail inbox using natural voice commands. Built with JavaScript (frontend) and Python (backend), it uses OpenAI's Whisper API for transcription and GPT-4 for contextual understanding.
 
+![screenshot](images/Tyler_Bosmeny.png)
+
+
 ## ✨ Features
 - Voice control for Gmail (draft, summarize, delete, archive)
 - Smart name-to-email resolution using fuzzy matching

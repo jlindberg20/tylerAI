@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           };
   
           mediaRecorder.start();
-          setTimeout(() => mediaRecorder.stop(), 5000); // 5s recording
+          setTimeout(() => mediaRecorder.stop(), 15000); // 15s recording
         })
         .catch((err) => {
           console.error("❌ Mic access error:", err);
