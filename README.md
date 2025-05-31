@@ -33,3 +33,10 @@ TylerAI is a Chrome extension that lets you manage your Gmail inbox using natura
 1. Clone the repo
 2. Go to `frontend/` directory
 3. Run `npm
+
+### Author/Publication Details
+- Authored by: Jacob Lindberg - King of Software Degeneracy
+- Inspired by: Tyler Bosmeny - General Partner - YCombinator
+- Performance Enhancing Drugs Used - Caffeine
+- Symptoms - Bug-eyed, Persistent Pre-Frontal Cortex Migraine
+- Degeneracy Score: 7/10
