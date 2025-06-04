@@ -40,3 +40,8 @@ TylerAI is a Chrome extension that lets you manage your Gmail inbox using natura
 - Performance Enhancing Drugs Used - Caffeine
 - Symptoms - Bug-eyed, Persistent Pre-Frontal Cortex Migraine
 - Degeneracy Score: 7/10
+
+### Mock UI Web App
+Here is the mock UI for the webapp... 
+![logo](images/Mock_WebApp_UI.png)
+
