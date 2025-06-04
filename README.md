@@ -42,6 +42,5 @@ TylerAI is a Chrome extension that lets you manage your Gmail inbox using natura
 - Degeneracy Score: 7/10
 
 ### Mock UI Web App
-Here is the mock UI for the webapp... 
+Here is the mock UI for the WebApp... 
 ![logo](images/Mock_WebApp_UI.png)
-
