@@ -1,0 +1,15 @@
+/****** TO ATTACH HOOKS TO THE DASHBOARD *****/
+
+import { useAgentStatus } from "../hooks/useAgentStatus";
+
+const Dashboard = () => {
+  const { tasks, loading } = useAgentStatus();
+
+  return (
+    <div>
+      {loading ? <p>Loading tasks...</p> : tasks.map(task => (
+        <TaskCard key={task.id} task={task} />
+      ))}
+    </div>
+  );
+};
