@@ -1,22 +1,22 @@
 // src/hooks/useVoice.js
 import { useState } from "react";
-import { sendAudioToWhisper } from "../api/chat";
+import { transcribeAudio } from "../api/chat";
 
 export const useVoice = () => {
   const [transcript, setTranscript] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const transcribeAudio = async (audioBlob) => {
+  const handleAudio = async (audioBlob) => {
     setLoading(true);
     try {
-      const text = await sendAudioToWhisper(audioBlob);
-      setTranscript(text);
+      const result = await transcribeAudio(audioBlob);
+      setTranscript(result.transcript);
     } catch (err) {
-      console.error("Transcription failed", err);
+      console.error("Whisper transcription failed", err);
     } finally {
       setLoading(false);
     }
   };
 
-  return { transcript, loading, transcribeAudio };
+  return { transcript, loading, handleAudio };
 };
