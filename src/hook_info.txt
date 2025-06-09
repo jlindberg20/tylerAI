@@ -13,3 +13,17 @@ const Dashboard = () => {
     </div>
   );
 };
+
+/****** REMAINING STEPS TO COMPLETE INTEGRATION ******/
+
+1. ✅ Create `src/hooks/useAgentStatus.js` 
+   - Polls backend every 5s for updated agent tasks
+
+2. ✅ Ensure `src/api/tasks.js` includes `getAgentTasks()`:
+   ```js
+   // src/api/tasks.js
+   export const getAgentTasks = async () => {
+     const res = await fetch("/api/tasks");
+     if (!res.ok) throw new Error("Failed to fetch tasks");
+     return res.json();
+   };
