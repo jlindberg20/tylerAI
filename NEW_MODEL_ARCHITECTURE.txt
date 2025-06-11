@@ -1,0 +1,197 @@
+/******** BACKEND SCHEMA FOR NEW WEB APP TYLER AI PRODUCTION VERSION **********/
+
+/agents/
+├── agentRouter.js              # Entry point for agent task routing (e.g. POST /triggerAgent)
+├── decisionEngine.js           # GPT + rule engine to decide what to do
+├── tools/
+│   ├── ragTool.js              # Vector DB lookup for context enrichment
+│   ├── calendarTool.js         # Google Calendar availability lookups
+│   ├── contactResolver.js      # Resolve names to emails
+│   └── threadFetcher.js        # Pull latest Gmail threads/messages
+/tasks/
+├── taskQueue.js                # BullMQ queue config and job creation
+├── worker.js                   # Main runner that processes tasks
+├── taskTypes/
+│   ├── handleNewEmail.js       # Main handler for Gmail webhook jobs
+│   ├── handleUserCommand.js    # Voice/typed commands from user
+│   ├── handleUserReply.js      # Response to SMS/Slack confirmation
+│   └── followUpPendingTask.js  # Resume paused agent flows
+/models/
+├── userModel.js                # User config, tokens, agent prefs
+├── contactModel.js             # Known contacts, last interaction
+├── taskModel.js                # Logged agent actions and state
+├── threadModel.js              # Indexed thread history
+├── redisClient.js              # Redis short-term store connector
+├── vectorDBClient.js           # Pinecone or Weaviate adapter
+/integrations/
+├── gmailClient.js              # Gmail API wrapper (send, draft, delete)
+├── gmailWebhook.js             # Gmail push event handler
+├── twilioClient.js             # Twilio SMS send + webhook handler
+├── slackClient.js              # Slack notification API
+├── calendarClient.js           # Google Calendar API wrapper
+/llm/
+├── openaiClient.js             # GPT API wrapper
+├── promptBuilder.js            # Dynamic system prompt assembly
+├── memoryReducer.js            # Token optimizer for past threads
+/config/
+├── env.js                      # Load environment vars
+├── routes.js                   # Express route map
+├── db.js                       # Postgres client
+├── redis.js                    # Redis client
+/logs/
+├── taskLogger.js               # Write to DB or file log
+├── analyticsTracker.js         # Tracks agent outcomes and usage
+/auth/
+├── gmailAuth.js                # OAuth flow for Gmail access
+├── calendarAuth.js             # OAuth flow for Calendar access
+├── authMiddleware.js           # Express middleware to validate user session/token
+/webhooks/
+├── gmailWebhookHandler.js      # Handles Gmail push notifications
+├── twilioWebhookHandler.js     # Handles SMS replies from user
+├── slackWebhookHandler.js      # Handles Slack interactivity (buttons, replies)
+/utils/
+├── timeUtils.js                # Time parsing, availability windows
+├── formatUtils.js              # Email formatting, reply parsing
+├── tokenUtils.js               # Token management and refresh
+├── stringSimilarity.js         # Fuzzy matching and contact resolution
+/tests/
+├── decisionEngine.test.js
+├── contactResolver.test.js
+├── threadFetcher.test.js
+/middlewares/
+├── errorHandler.js             # Unified error response
+├── requestLogger.js            # Log incoming requests
+/docs/
+├── promptTemplates/
+│   ├── system.txt              # Default agent system prompt
+│   ├── meetingRequest.txt      # Specialized prompts
+├── specs/
+│   ├── agentStateMachine.md
+│   └── contactResolution.md
+/storage/
+├── transcripts/                # Audio-to-text files
+├── emailLogs/                  # Archived email threads
+├── agentDrafts/                # Cached response drafts
+/clientHooks/
+├── onNewCommand.js             # Called when user speaks a new intent
+├── onAgentResponse.js          # Called when draft is generated
+/index.js                       # Express app init
+/server.js                      # Starts HTTP server
+
+
+
+
+/********* POSTGRES SCHEMA OUTLINE ********/
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT,
+  gmail_access_token TEXT,
+  gmail_refresh_token TEXT,
+  calendar_access_token TEXT,
+  calendar_refresh_token TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE agent_configs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  auto_reply_enabled BOOLEAN DEFAULT FALSE,
+  contacts_whitelist TEXT[],        -- emails Tyler can auto-reply to
+  contacts_blacklist TEXT[],
+  escalation_required BOOLEAN DEFAULT TRUE,
+  meeting_hours JSONB,              -- e.g. {"weekend": false, "weekday": ["09:00-18:00"]}
+  tone_preference TEXT DEFAULT 'professional',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE threads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  gmail_thread_id TEXT UNIQUE,
+  subject TEXT,
+  last_message_snippet TEXT,
+  last_updated TIMESTAMP,
+  archived BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE contacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT,
+  name TEXT,
+  last_contacted TIMESTAMP,
+  importance_score INTEGER DEFAULT 0,
+  auto_respond_enabled BOOLEAN DEFAULT FALSE,
+  tags TEXT[]
+);
+CREATE TABLE agent_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  contact_id UUID REFERENCES contacts(id),
+  thread_id UUID REFERENCES threads(id),
+  type TEXT,                           -- e.g., 'draft_reply', 'delete', 'ask_user'
+  status TEXT,                         -- 'pending', 'executed', 'failed', 'waiting_user'
+  payload JSONB,                       -- GPT response, message content, etc.
+  gpt_tokens_used INTEGER,
+  needs_user_approval BOOLEAN DEFAULT FALSE,
+  executed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE agent_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id UUID REFERENCES agent_tasks(id),
+  user_id UUID REFERENCES users(id),
+  rating TEXT,                         -- 'approve', 'reject', 'corrected'
+  comments TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_thread_user ON threads(user_id);
+CREATE INDEX idx_contact_user ON contacts(user_id);
+CREATE INDEX idx_task_status ON agent_tasks(status);
+
+/********* FRONT END SCHEMA ************/
+/frontend/
+├── public/
+│   └── index.html
+├── src/
+│   ├── assets/                  # Icons, sounds, brand
+│   ├── components/              # Reusable UI blocks
+│   │   ├── Header.jsx
+│   │   ├── Sidebar.jsx
+│   │   ├── VoiceWidget.jsx      # Microphone + waveform + Whisper trigger
+│   │   ├── ChatWidget.jsx       # Chat with Tyler inline
+│   │   ├── TaskCard.jsx         # One action taken by Tyler
+│   │   └── ApprovalModal.jsx    # “Do you want me to send this?” confirmation
+│   ├── pages/                   # Top-level pages
+│   │   ├── Dashboard.jsx        # Main logged-in UI
+│   │   ├── ActivityLog.jsx      # Sorted history of Tyler’s actions
+│   │   ├── Tasks.jsx            # Shows pending and resolved tasks
+│   │   ├── Settings.jsx         # User agent preferences
+│   │   └── Login.jsx            # OAuth2 login screen
+│   ├── hooks/                   # Reusable React hooks
+│   │   ├── useAuth.js
+│   │   ├── useAgentStatus.js
+│   │   ├── useVoice.js
+│   ├── context/
+│   │   └── AuthContext.js       # User state and token management
+│   ├── api/
+│   │   ├── auth.js              # Login, logout, token refresh
+│   │   ├── tasks.js             # CRUD for agentTasks
+│   │   ├── user.js              # Load agent config, preferences
+│   │   ├── chat.js              # Call backend for GPT messages
+│   ├── styles/
+│   │   └── tailwind.css
+│   └── main.jsx                 # App entry point
+├── .env
+├── package.json
+└── vite.config.js
+
+
+
+
+// CONSUMER PSYCHOLOGY OF PROJECT
+... what is going to cause retention? 
+... what is the consumer going to get as a function of paying for this service?
+... what is a compelling business model? revenue streams?
+... who is the beachhead? who should we be building this for?
